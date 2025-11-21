@@ -16,6 +16,7 @@ import {
   EmptyContent,
 } from "@/components/ui/empty";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TooltipContent } from "@/components/ui/tooltip";
 import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
 import type { LabaratoryOperation } from "@/lib/operations";
@@ -163,7 +164,6 @@ export const BuilderScalarField = (props: {
     return (
       <Collapsible
         key={props.field.name}
-        className="relative"
         open={isOpen}
         onOpenChange={setIsOpen}
       >
@@ -177,13 +177,17 @@ export const BuilderScalarField = (props: {
               }
             )}
             style={{
-              top: `${(props.path.length - 1) * 32}px`,
+              top: `${(props.path.length - 2) * 32}px`,
             }}
             size="sm"
           >
             <div className="absolute top-0 left-0 w-full h-full -z-20 bg-card" />
             <div className="absolute top-0 left-0 w-full h-full -z-10 group-hover:bg-accent dark:group-hover:bg-accent/50 transition-colors" />
-            <ChevronDownIcon className="size-4 text-muted-foreground" />
+            <ChevronDownIcon
+              className={cn("size-4 text-muted-foreground transition-all", {
+                "-rotate-90": !isOpen,
+              })}
+            />
             <Checkbox
               onClick={(e) => e.stopPropagation()}
               checked={isInQuery}
@@ -220,7 +224,14 @@ export const BuilderScalarField = (props: {
                       }}
                       size="sm"
                     >
-                      <ChevronDownIcon className="size-4 text-muted-foreground" />
+                      <ChevronDownIcon
+                        className={cn(
+                          "size-4 text-muted-foreground transition-all",
+                          {
+                            "-rotate-90": !isOpen,
+                          }
+                        )}
+                      />
                       <Checkbox
                         onClick={(e) => e.stopPropagation()}
                         checked={hasArgs}
@@ -344,12 +355,7 @@ export const BuilderObjectField = (props: {
   }, [operation?.query, path]);
 
   return (
-    <Collapsible
-      key={props.field.name}
-      className="relative"
-      open={isOpen}
-      onOpenChange={setIsOpen}
-    >
+    <Collapsible key={props.field.name} open={isOpen} onOpenChange={setIsOpen}>
       <CollapsibleTrigger asChild>
         <Button
           variant="ghost"
@@ -360,13 +366,17 @@ export const BuilderObjectField = (props: {
             }
           )}
           style={{
-            top: `${(props.path.length - 1) * 32}px`,
+            top: `${(props.path.length - 2) * 32}px`,
           }}
           size="sm"
         >
           <div className="absolute top-0 left-0 w-full h-full -z-20 bg-card" />
           <div className="absolute top-0 left-0 w-full h-full -z-10 group-hover:bg-accent dark:group-hover:bg-accent/50 transition-colors" />
-          <ChevronDownIcon className="size-4 text-muted-foreground" />
+          <ChevronDownIcon
+            className={cn("size-4 text-muted-foreground transition-all", {
+              "-rotate-90": !isOpen,
+            })}
+          />
           <Checkbox
             onClick={(e) => e.stopPropagation()}
             checked={isInQuery}
@@ -403,7 +413,14 @@ export const BuilderObjectField = (props: {
                     }}
                     size="sm"
                   >
-                    <ChevronDownIcon className="size-4 text-muted-foreground" />
+                    <ChevronDownIcon
+                      className={cn(
+                        "size-4 text-muted-foreground transition-all",
+                        {
+                          // "-rotate-90": !isOpen,
+                        }
+                      )}
+                    />
                     <Checkbox
                       onClick={(e) => e.stopPropagation()}
                       checked={hasArgs}
@@ -499,31 +516,38 @@ export const Builder = (props: {
   }, [props.operation, activeOperation]);
 
   useEffect(() => {
-    if (schema && !openPaths.length) {
-      setOpenPaths(getOpenPaths(operation?.query ?? ""));
-    }
-  }, [schema, operation?.query, openPaths.length]);
+    if (schema) {
+      const newOpenPaths = getOpenPaths(operation?.query ?? "");
 
-  const fields: GraphQLField<unknown, unknown, unknown>[] = [
-    {
-      name: "query",
-      type: schema?.getQueryType(),
-    },
-    {
-      name: "mutation",
-      type: schema?.getMutationType(),
-    },
-    {
-      name: "subscription",
-      type: schema?.getSubscriptionType(),
-    },
-  ].filter((f) => f.type) as GraphQLField<unknown, unknown, unknown>[];
+      if (newOpenPaths.length > 0) {
+        setOpenPaths(newOpenPaths);
+        setTabValue(newOpenPaths[0]);
+      }
+    }
+  }, [schema, operation?.query]);
+
+  const queryFields = useMemo(
+    () => Object.values(schema?.getQueryType()?.getFields?.() ?? {}),
+    [schema]
+  );
+
+  const mutationFields = useMemo(
+    () => Object.values(schema?.getMutationType()?.getFields?.() ?? {}),
+    [schema]
+  );
+
+  const subscriptionFields = useMemo(
+    () => Object.values(schema?.getSubscriptionType()?.getFields?.() ?? {}),
+    [schema]
+  );
+
+  const [tabValue, setTabValue] = useState<string>("query");
 
   return (
-    <div className="w-full h-full flex flex-col pb-0 bg-card overflow-hidden">
-      <div className="flex items-center p-3 px-3 border-b border-border">
+    <div className="w-full h-full flex flex-col bg-card overflow-hidden">
+      <div className="flex items-center pt-3 px-3">
         <span className="text-md font-medium">Builder</span>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -542,23 +566,88 @@ export const Builder = (props: {
       </div>
       <div className="flex-1 overflow-hidden">
         {schema ? (
-          <ScrollArea className="font-mono h-full">
-            <div className="p-3">
-              {fields?.map((field) => (
-                <BuilderField
-                  key={field.name}
-                  field={field}
-                  path={[field.name]}
-                  openPaths={openPaths}
-                  setOpenPaths={setOpenPaths}
-                  isReadOnly={props.isReadOnly}
-                  operation={operation}
-                />
-              ))}
+          <Tabs
+            key={operation?.id}
+            value={tabValue}
+            onValueChange={setTabValue}
+            className="w-full h-full gap-0 flex flex-col"
+          >
+            <div className="flex items-center p-3 px-3 border-b border-border">
+              <TabsList className="w-full">
+                <TabsTrigger
+                  value="query"
+                  disabled={queryFields.length === 0}
+                  className="text-xs"
+                >
+                  Query
+                </TabsTrigger>
+                <TabsTrigger
+                  value="mutation"
+                  disabled={mutationFields.length === 0}
+                  className="text-xs"
+                >
+                  Mutation
+                </TabsTrigger>
+                <TabsTrigger
+                  value="subscription"
+                  disabled={subscriptionFields.length === 0}
+                  className="text-xs"
+                >
+                  Subscription
+                </TabsTrigger>
+              </TabsList>
             </div>
-            <ScrollBar className="z-20" />
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
+            <div className="flex-1 overflow-hidden">
+              <ScrollArea className="font-mono h-full">
+                <div className="p-3">
+                  <TabsContent value="query">
+                    {queryFields?.map((field) => (
+                      <BuilderField
+                        key={field.name}
+                        field={field}
+                        path={["query", field.name]}
+                        openPaths={openPaths}
+                        setOpenPaths={setOpenPaths}
+                        isReadOnly={props.isReadOnly}
+                        operation={operation}
+                      />
+                    ))}
+                  </TabsContent>
+                  <TabsContent value="mutation">
+                    {mutationFields?.map((field) => (
+                      <BuilderField
+                        key={field.name}
+                        field={field}
+                        path={["mutation", field.name]}
+                        openPaths={openPaths}
+                        setOpenPaths={setOpenPaths}
+                        isReadOnly={props.isReadOnly}
+                        operation={operation}
+                      />
+                    ))}
+                  </TabsContent>
+                  <TabsContent value="subscription">
+                    {subscriptionFields?.map((field) => (
+                      <BuilderField
+                        key={field.name}
+                        field={field}
+                        path={["subscription", field.name]}
+                        openPaths={openPaths}
+                        setOpenPaths={setOpenPaths}
+                        isReadOnly={props.isReadOnly}
+                        operation={operation}
+                      />
+                    ))}
+                  </TabsContent>
+                </div>
+                <ScrollBar className="relative z-100" />
+                <ScrollBar
+                  orientation="horizontal"
+                  className="relative z-100"
+                />
+              </ScrollArea>
+            </div>
+          </Tabs>
         ) : (
           <Empty className="w-full px-0! h-97.5">
             <EmptyHeader>

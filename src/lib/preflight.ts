@@ -72,29 +72,27 @@ export const usePreflight = (props: {
 
 export async function runIsolatedLabScript(
   script: string,
-  env: LabaratoryEnv
+  env: LabaratoryEnv,
+  prompt?: (placeholder: string, defaultValue: string) => Promise<string | null>
 ): Promise<LabaratoryPreflightResult> {
   return new Promise((resolve, reject) => {
     const blob = new Blob(
       [
-        `
+        /* javascript */`
+        import CryptoJS from 'https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/+esm';
+        
         const env = ${JSON.stringify(env)};
 
+        let promptResolve = null;
+
         self.onmessage = async (event) => {
-          try {
-            const lab = Object.freeze({
-              fetch,
-              graphql: (endpoint, query, options) => {
-                return fetch(endpoint, {
-                  method: 'POST',
-                  body: JSON.stringify({ query, variables: options?.variables, extensions: options?.extensions }),
-                  headers: {
-                    'Content-Type': 'application/json',
-                    ...options?.headers,
-                  },
-                });
-              },
-              console: {
+          if (event.data.type === 'prompt:result') {
+            promptResolve?.(event.data.value || null);
+          }
+
+          if (event.data.type === 'init') {
+            try {
+              self.console = {
                 log: (...args) => {
                   self.postMessage({ type: 'log', level: 'log', message: args });
                 },
@@ -104,24 +102,45 @@ export async function runIsolatedLabScript(
                 error: (...args) => {
                   self.postMessage({ type: 'log', level: 'error', message: args });
                 },
-              },
-              env: {
-                get: (key) => env.variables[key],
-                set: (key, value) => {
-                  env.variables[key] = value;
+              };
+              
+              const lab = Object.freeze({
+                request: (endpoint, query, options) => {
+                  return fetch(endpoint, {
+                    method: 'POST',
+                    body: JSON.stringify({ query, variables: options?.variables, extensions: options?.extensions }),
+                    headers: {
+                      'Content-Type': 'application/json',
+                      ...options?.headers,
+                    },
+                  });
                 },
-                delete: (key) => {
-                  delete env.variables[key];
-                }
-              }
-            });
-
-            const AsyncFunction = async function () {}.constructor;
-            await new AsyncFunction('lab', 'with(lab){' + event.data.script + '}')(lab);
-            
-            self.postMessage({ type: 'result', status: 'success', env: env });
-          } catch (err) {
-            self.postMessage({ type: 'result', status: 'error', error: err.message || String(err) });
+                environment: {
+                  get: (key) => env.variables[key],
+                  set: (key, value) => {
+                    env.variables[key] = value;
+                  },
+                  delete: (key) => {
+                    delete env.variables[key];
+                  }
+                },
+                prompt: (placeholder, defaultValue) => {
+                  return new Promise((resolve) => {
+                    promptResolve = resolve;
+                    self.postMessage({ type: 'prompt', placeholder, defaultValue });
+                  });
+                },
+                CryptoJS: CryptoJS
+              });
+  
+              // Make CryptoJS available globally in the script context
+              const AsyncFunction = async function () {}.constructor;
+              await new AsyncFunction('lab', 'CryptoJS', 'with(lab){' + event.data.script + '}')(lab, CryptoJS);
+              
+              self.postMessage({ type: 'result', status: 'success', env: env });
+            } catch (err) {
+              self.postMessage({ type: 'result', status: 'error', error: err.message || String(err) });
+            }
           }
         };
       `,
@@ -159,11 +178,14 @@ export async function runIsolatedLabScript(
         } else if (data.level === "error") {
           logs.push({ level: "error", message: data.message, createdAt: new Date().toISOString() });
         }
+      } else if (data.type === "prompt") {
+        prompt?.(data.placeholder, data.defaultValue).then((value) => {
+          worker.postMessage({ type: 'prompt:result', value });
+        });
       }
     };
 
     worker.onerror = (error) => {
-      console.error(error);
       reject({
         status: "error",
         error: error.message,
@@ -171,6 +193,6 @@ export async function runIsolatedLabScript(
       });
     };
 
-    worker.postMessage({ script });
+    worker.postMessage({ type: 'init', script });
   });
 }

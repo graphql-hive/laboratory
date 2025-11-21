@@ -2,6 +2,7 @@ import type { LabaratoryEnv } from "@/lib/env";
 import type { LabaratoryHistoryRequest } from "@/lib/history";
 import type { LabaratoryOperation } from "@/lib/operations";
 import type { LabaratoryPreflight } from "@/lib/preflight";
+import type { LabaratoryTest } from "@/lib/tests";
 import { useCallback, useState } from "react";
 
 export interface LabaratoryTabOperation {
@@ -32,6 +33,20 @@ export interface LabaratoryTabEnv {
   readOnly?: boolean;
 }
 
+export interface LabaratoryTabTest {
+  id: string;
+  type: "test";
+  data: Pick<LabaratoryTest, "id" | "name">;
+  readOnly?: boolean;
+}
+
+export interface LabaratoryTabSettings {
+  id: string;
+  type: "settings";
+  data: unknown;
+  readOnly?: boolean;
+}
+
 export type LabaratoryTabData =
   | Pick<LabaratoryOperation, "id" | "name">
   | Pick<LabaratoryHistoryRequest, "id">
@@ -41,7 +56,9 @@ export type LabaratoryTab =
   | LabaratoryTabOperation
   | LabaratoryTabPreflight
   | LabaratoryTabEnv
-  | LabaratoryTabHistory;
+  | LabaratoryTabHistory
+  | LabaratoryTabSettings
+  | LabaratoryTabTest;
 
 export interface LabaratoryTabsState {
   tabs: LabaratoryTab[];
@@ -73,7 +90,7 @@ export const useTabs = (props: {
   const setActiveTab = useCallback(
     (tab: LabaratoryTab) => {
       _setActiveTab(tab);
-      props.onActiveTabIdChange?.(tab.id);
+      props.onActiveTabIdChange?.(tab?.id ?? null);
     },
     [props]
   );

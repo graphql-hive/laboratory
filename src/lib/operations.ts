@@ -72,6 +72,12 @@ export interface LabaratoryOperationsActions {
   isActiveOperationSubscription: boolean;
 }
 
+export interface LabaratoryOperationsCallbacks {
+  onOperationCreate?: (operation: LabaratoryOperation) => void;
+  onOperationUpdate?: (operation: LabaratoryOperation) => void;
+  onOperationDelete?: (operation: LabaratoryOperation) => void;
+}
+
 export const useOperations = (props: {
   defaultOperations?: LabaratoryOperation[];
   defaultActiveOperationId?: string;
@@ -81,7 +87,8 @@ export const useOperations = (props: {
   tabsApi?: LabaratoryTabsState & LabaratoryTabsActions;
   envApi?: LabaratoryEnvState & LabaratoryEnvActions;
   preflightApi?: LabaratoryPreflightState & LabaratoryPreflightActions;
-}): LabaratoryOperationsState & LabaratoryOperationsActions => {
+} & LabaratoryOperationsCallbacks): LabaratoryOperationsState &
+  LabaratoryOperationsActions => {
   const [operations, _setOperations] = useState<LabaratoryOperation[]>(
     props.defaultOperations ?? []
   );
@@ -127,12 +134,15 @@ export const useOperations = (props: {
   const addOperation = useCallback(
     (operation: Omit<LabaratoryOperation, "id"> & { id?: string }) => {
       const newOperation = { id: crypto.randomUUID(), ...operation };
+      const newOperations = [...operations, newOperation];
+      _setOperations(newOperations);
+      props.onOperationsChange?.(newOperations);
 
-      _setOperations((prev) => [...prev, newOperation]);
+      props.onOperationCreate?.(newOperation);
 
       return newOperation;
     },
-    []
+    [operations, props]
   );
 
   useEffect(() => {
@@ -182,6 +192,9 @@ export const useOperations = (props: {
       _setOperations(newOperations);
 
       props.onOperationsChange?.(newOperations);
+      if (updatedOperation.id) {
+        props.onOperationUpdate?.(updatedOperation as LabaratoryOperation);
+      }
 
       if (props.collectionsApi && activeOperation?.id) {
         const collectionId =
@@ -201,10 +214,14 @@ export const useOperations = (props: {
 
   const deleteOperation = useCallback(
     (operationId: string) => {
+      const operationToDelete = operations.find((o) => o.id === operationId);
       const newOperations = operations.filter((o) => o.id !== operationId);
       _setOperations(newOperations);
 
       props.onOperationsChange?.(newOperations);
+      if (operationToDelete) {
+        props.onOperationDelete?.(operationToDelete);
+      }
 
       if (activeOperation?.id === operationId) {
         setActiveOperation(newOperations[0]?.id ?? "");
@@ -299,18 +316,23 @@ export const useOperations = (props: {
         return null;
       }
 
-      const env: LabaratoryEnv = options?.env ??
+      let env: LabaratoryEnv = options?.env ??
         (await props.preflightApi
           ?.runPreflight?.()
           ?.then((result) => result?.env ?? { variables: {} })) ?? {
           variables: {},
         };
 
-      props.envApi?.setEnv(env);
+      if (env && Object.keys(env.variables).length > 0) {
+        props.envApi?.setEnv(env);
+      } else {
+        env = props.envApi?.env ?? { variables: {} };
+      }
 
       const headers = activeOperation.headers
         ? JSON.parse(handleTemplate(activeOperation.headers, env))
         : {};
+
       const variables = activeOperation.variables
         ? JSON.parse(handleTemplate(activeOperation.variables, env))
         : {};
