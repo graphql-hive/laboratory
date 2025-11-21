@@ -1,75 +1,175 @@
-# React + TypeScript + Vite
+# Hive Labaratory Component Documentation
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+`Labaratory` is a fully featured React component that provides a modern GraphQL playground experience (collections, tabs, history, preflight scripts, environment variables, tests, etc.). It ships with an opinionated UI and a context provider that exposes granular hooks for integrating with your own storage or analytics layers.
 
-Currently, two official plugins are available:
+This document explains how to embed the component, what data it needs, and how to react to user changes through the available callbacks.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## React Compiler
+## Getting Started
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+```tsx
+import { Labaratory } from "@/components/labaratory/labaratory";
 
-Note: This will impact Vite dev & build performances.
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+export const Playground = () => {
+  return (
+    <Labaratory
+      defaultEndpoint="https://api.spacex.land/graphql/"
+      onEndpointChange={(endpoint) => {
+        localStorage.setItem("lab-endpoint", endpoint ?? "");
+      }}
+      defaultOperations={[]}
+      onOperationCreate={(operation) => console.log("created", operation)}
+      onOperationUpdate={(operation) => console.log("updated", operation)}
+      onOperationDelete={(operation) => console.log("deleted", operation)}
+    />
+  );
+};
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+The component renders the full UI and injects a `LabaratoryProvider`, so any nested component can call `useLabaratory()` to access the current state.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+---
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Data Flow Overview
+
+`Labaratory` is controlled via two complementary mechanisms:
+
+1. **Default Values** – `default*` props let you hydrate the playground from persisted data (e.g., localStorage, database). These are only read during initialization.
+2. **Event Callbacks** – `on*` props fire whenever users create/update/delete entities within the playground. Use them to keep external storage in sync or to trigger side effects (analytics, notifications, etc.).
+
+If you provide both a default value and a callback for the same entity, you can make the playground fully persistent without touching its internals.
+
+---
+
+## Props Reference
+
+### Endpoint
+
+- `defaultEndpoint?: string | null`
+- `onEndpointChange?: (endpoint: string | null) => void`
+
+### Collections
+
+- `defaultCollections?: LabaratoryCollection[]`
+- `onCollectionsChange?: (collections: LabaratoryCollection[]) => void`
+- `onCollectionCreate?: (collection: LabaratoryCollection) => void`
+- `onCollectionUpdate?: (collection: LabaratoryCollection) => void`
+- `onCollectionDelete?: (collection: LabaratoryCollection) => void`
+- `onCollectionOperationCreate?: (collection: LabaratoryCollection, operation: LabaratoryCollectionOperation) => void`
+- `onCollectionOperationUpdate?: (collection: LabaratoryCollection, operation: LabaratoryCollectionOperation) => void`
+- `onCollectionOperationDelete?: (collection: LabaratoryCollection, operation: LabaratoryCollectionOperation) => void`
+
+### Operations
+
+- `defaultOperations?: LabaratoryOperation[]`
+- `defaultActiveOperationId?: string`
+- `onOperationsChange?: (operations: LabaratoryOperation[]) => void`
+- `onActiveOperationIdChange?: (operationId: string) => void`
+- `onOperationCreate?: (operation: LabaratoryOperation) => void`
+- `onOperationUpdate?: (operation: LabaratoryOperation) => void`
+- `onOperationDelete?: (operation: LabaratoryOperation) => void`
+
+### History
+
+- `defaultHistory?: LabaratoryHistory[]`
+- `onHistoryChange?: (history: LabaratoryHistory[]) => void`
+- `onHistoryCreate?: (history: LabaratoryHistory) => void`
+- `onHistoryUpdate?: (history: LabaratoryHistory) => void`
+- `onHistoryDelete?: (history: LabaratoryHistory) => void`
+
+### Tabs
+
+- `defaultTabs?: LabaratoryTab[]`
+- `defaultActiveTabId?: string | null`
+- `onTabsChange?: (tabs: LabaratoryTab[]) => void`
+- `onActiveTabIdChange?: (tabId: string | null) => void`
+
+### Preflight Script
+
+- `defaultPreflight?: LabaratoryPreflight | null`
+- `onPreflightChange?: (preflight: LabaratoryPreflight | null) => void`
+
+### Environment Variables
+
+- `defaultEnv?: LabaratoryEnv | null`
+- `onEnvChange?: (env: LabaratoryEnv | null) => void`
+
+### Settings
+
+- `defaultSettings?: LabaratorySettings | null`
+- `onSettingsChange?: (settings: LabaratorySettings | null) => void`
+
+### Tests
+
+- `defaultTests?: LabaratoryTest[]`
+- `onTestsChange?: (tests: LabaratoryTest[]) => void`
+
+### Dialog Helpers
+
+`useLabaratory()` also exposes `openAddCollectionDialog`, `openUpdateEndpointDialog`, and `openAddTestDialog` so that external buttons can toggle the built-in dialogs.
+
+---
+
+## Consuming State via `useLabaratory`
+
+Inside any descendant of `Labaratory`, call the hook to access live state and actions:
+
+```tsx
+import { useLabaratory } from "@/components/labaratory/context";
+
+const RunButton = () => {
+  const { runActiveOperation, endpoint } = useLabaratory();
+
+  return (
+    <button
+      disabled={!endpoint}
+      onClick={() => runActiveOperation(endpoint!, { env: { variables: {} } })}
+    >
+      Run
+    </button>
+  );
+};
+```
+
+All actions returned by the hook (collections, operations, history, tabs, preflight, env, settings, tests) stay in sync with the UI.
+
+---
+
+## Persistence Example
+
+The snippet below demonstrates how to persist operations and history to `localStorage` using the granular callbacks:
+
+```tsx
+const STORAGE_KEY = "labaratory-data";
+
+const loadData = () => {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}");
+  } catch {
+    return {};
+  }
+};
+
+const save = (partial: any) => {
+  const current = loadData();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...current, ...partial }));
+};
+
+const data = loadData();
+
+export function PersistentPlayground() {
+  return (
+    <Labaratory
+      defaultOperations={data.operations ?? []}
+      onOperationsChange={(operations) => save({ operations })}
+      onOperationCreate={(operation) =>
+        console.info("operation created", operation)
+      }
+      defaultHistory={data.history ?? []}
+      onHistoryDelete={(history) => console.info("history deleted", history)}
+      onHistoryChange={(history) => save({ history })}
+    />
+  );
+}
 ```

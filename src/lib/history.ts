@@ -1,5 +1,6 @@
 import type { LabaratoryOperation } from "@/lib/operations";
 import type { LabaratoryPreflightLog } from "@/lib/preflight";
+import { format } from "date-fns";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 export interface LabaratoryHistoryRequest {
@@ -36,12 +37,22 @@ export interface LabaratoryHistoryState {
 export interface LabaratoryHistoryActions {
   addHistory: (history: Omit<LabaratoryHistory, "id">) => LabaratoryHistory;
   addResponseToHistory: (historyId: string, response: string) => void;
+  deleteHistory: (historyId: string) => void;
+  deleteHistoryByDay: (day: string) => void;
+  deleteAllHistory: () => void;
+}
+
+export interface LabaratoryHistoryCallbacks {
+  onHistoryCreate?: (history: LabaratoryHistory) => void;
+  onHistoryUpdate?: (history: LabaratoryHistory) => void;
+  onHistoryDelete?: (history: LabaratoryHistory) => void;
 }
 
 export const useHistory = (props: {
   defaultHistory?: LabaratoryHistory[];
   onHistoryChange?: (history: LabaratoryHistory[]) => void;
-}): LabaratoryHistoryState & LabaratoryHistoryActions => {
+} & LabaratoryHistoryCallbacks): LabaratoryHistoryState &
+  LabaratoryHistoryActions => {
   const [history, setHistory] = useState<LabaratoryHistory[]>(
     props.defaultHistory ?? []
   );
@@ -62,6 +73,7 @@ export const useHistory = (props: {
       setHistory(newHistory);
 
       props.onHistoryChange?.(newHistory);
+      props.onHistoryCreate?.(newItem);
 
       return newItem;
     },
@@ -85,10 +97,62 @@ export const useHistory = (props: {
           },
         ];
 
-        const newHistory = [...historyRef.current.map((item) => item.id === historyId ? { ...item, responses: newResponses } : item)];
+        const updatedHistoryItem = {
+          ...historyItem,
+          responses: newResponses,
+        };
+        const newHistory = [
+          ...historyRef.current.map((item) =>
+            item.id === historyId ? updatedHistoryItem : item
+          ),
+        ];
         setHistory(newHistory);
         props.onHistoryChange?.(newHistory);
+        props.onHistoryUpdate?.(updatedHistoryItem);
       }
+    },
+    [props]
+  );
+
+  const deleteHistory = useCallback(
+    (historyId: string) => {
+      const historyToDelete = historyRef.current.find(
+        (item) => item.id === historyId
+      );
+      const newHistory = historyRef.current.filter(
+        (item) => item.id !== historyId
+      );
+      setHistory(newHistory);
+      props.onHistoryChange?.(newHistory);
+      if (historyToDelete) {
+        props.onHistoryDelete?.(historyToDelete);
+      }
+    },
+    [props]
+  );
+
+  const deleteAllHistory = useCallback(
+    () => {
+      const removedItems = [...historyRef.current];
+      setHistory([]);
+      props.onHistoryChange?.([]);
+      removedItems.forEach((item) => props.onHistoryDelete?.(item));
+    },
+    [props]
+  );
+
+  const deleteHistoryByDay = useCallback(
+    (day: string) => {
+      const removedItems = historyRef.current.filter(
+        (item) => format(new Date(item.createdAt), "dd MMM yyyy") === day
+      );
+      const newHistory = historyRef.current.filter(
+        (item) =>
+          format(new Date(item.createdAt), "dd MMM yyyy") !== day
+      );
+      setHistory(newHistory);
+      props.onHistoryChange?.(newHistory);
+      removedItems.forEach((item) => props.onHistoryDelete?.(item));
     },
     [props]
   );
@@ -97,5 +161,8 @@ export const useHistory = (props: {
     history,
     addHistory,
     addResponseToHistory,
+    deleteHistory,
+    deleteAllHistory,
+    deleteHistoryByDay,
   };
 };
