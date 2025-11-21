@@ -3,7 +3,6 @@ import { useLabaratory } from "@/components/labaratory/context";
 import { Editor } from "@/components/labaratory/editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ButtonGroup } from "@/components/ui/button-group";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,7 +21,6 @@ import {
   CircleXIcon,
   ClockIcon,
   FileTextIcon,
-  MoreHorizontalIcon,
   PlayIcon,
   SquarePenIcon,
 } from "lucide-react";
@@ -293,6 +291,18 @@ export const Response = ({
 }: {
   historyItem?: LabaratoryHistoryRequest | null;
 }) => {
+  const isError = useMemo(() => {
+    if (!historyItem) {
+      return false;
+    }
+
+    return (
+      historyItem.status < 200 ||
+      historyItem.status >= 300 ||
+      ("response" in historyItem && JSON.parse(historyItem.response).errors)
+    );
+  }, [historyItem]);
+
   return (
     <Tabs
       suffix={
@@ -300,13 +310,10 @@ export const Response = ({
           <div className="ml-auto flex items-center gap-2 pr-3">
             <Badge
               className={cn("bg-green-400/10 text-green-500", {
-                "bg-red-400/10 text-red-500":
-                  (historyItem as LabaratoryHistoryRequest).status < 200 ||
-                  (historyItem as LabaratoryHistoryRequest).status >= 300,
+                "bg-red-400/10 text-red-500": isError,
               })}
             >
-              {(historyItem as LabaratoryHistoryRequest).status >= 200 &&
-              (historyItem as LabaratoryHistoryRequest).status < 300 ? (
+              {!isError ? (
                 <CircleCheckIcon className="size-3" />
               ) : (
                 <CircleXIcon className="size-3" />
@@ -609,39 +616,30 @@ export const Query = (props: {
           {isActiveOperationSavedToCollection ? "Saved" : "Save"}
         </Toggle>
         <div className="ml-auto flex items-center gap-2">
-          <ButtonGroup>
-            <Button variant="outline" size="sm" className="h-6 rounded-sm">
-              Share
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon-sm"
-                  className="h-6 w-6 rounded-sm"
-                >
-                  <MoreHorizontalIcon className="size-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => share({ variables: true })}>
-                  Share with variables
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => share({ variables: true, extensions: true })}
-                >
-                  Share with variables and extensions
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() =>
-                    share({ variables: true, headers: true, extensions: true })
-                  }
-                >
-                  Share with variables, extensions, headers
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </ButtonGroup>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-6 rounded-sm">
+                Share
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => share({ variables: true })}>
+                Share with variables
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => share({ variables: true, extensions: true })}
+              >
+                Share with variables and extensions
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() =>
+                  share({ variables: true, headers: true, extensions: true })
+                }
+              >
+                Share with variables, extensions, headers
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           {!props.isReadOnly ? (
             <Button
               variant="default"

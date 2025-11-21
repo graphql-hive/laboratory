@@ -40,8 +40,8 @@ export function isPathInQuery(query: string, path: string, operationName?: strin
 
   try {
     doc = parse(query);
-  } catch (error) {
-    console.error(error);
+  } catch {
+    // console.error(error);
   }
 
   if (!doc) {
@@ -103,8 +103,8 @@ export function addPathToQuery(query: string, path: string, operationName?: stri
 
   try {
     doc = parse(query);
-  } catch (error) {
-    console.error(error);
+  } catch {
+    // console.error(error);
   }
 
   doc ??= {
@@ -249,8 +249,8 @@ export function deletePathFromQuery(query: string, path: string, operationName?:
 
   try {
     doc = parse(query);
-  } catch (error) {
-    console.error(error);
+  } catch {
+    // console.error(error);
   }
 
   if (!doc) {
@@ -357,8 +357,8 @@ export async function getOperationHash(operation: Pick<LabaratoryOperation, 'que
     const hashHex = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
   
     return hashHex;
-  } catch (error) {
-    console.error(error);
+  } catch {
+    // console.error(error);
     return null;
   }
 }
@@ -368,12 +368,22 @@ export function getOperationName(query: string) {
     const doc = parse(query);
     const operationDefinition = doc.definitions.find(v => v.kind === Kind.OPERATION_DEFINITION);
     return operationDefinition?.name?.value;
-  } catch (error) {
-    console.error(error);
+  } catch {
+    // console.error(error);
 
     const match = query.match(/(query|mutation|subscription)\s+([a-zA-Z0-9_]+)/);
   
     return match ? match[2] : null;
+  }
+}
+
+export function getOperationType(query: string) {
+  try {
+    const doc = parse(query);
+    const operationDefinition = doc.definitions.find(v => v.kind === Kind.OPERATION_DEFINITION);
+    return operationDefinition?.operation;
+  } catch {
+    return null;
   }
 }
 
@@ -398,8 +408,8 @@ export function isArgInQuery(
 
   try {
     doc = parse(query);
-  } catch (error) {
-    console.error(error);
+  } catch {
+    // console.error(error);
   }
 
   if (!doc) {
@@ -536,8 +546,8 @@ export function addArgToField(
 
   try {
     doc = parse(query);
-  } catch (error) {
-    console.error(error);
+  } catch {
+    // console.error(error);
   }
 
   if (!doc) {
@@ -830,8 +840,8 @@ export function removeArgFromField(
 
   try {
     doc = parse(query);
-  } catch (error) {
-    console.error(error);
+  } catch {
+    // console.error(error);
   }
 
   if (!doc) {

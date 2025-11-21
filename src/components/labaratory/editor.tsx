@@ -46,7 +46,7 @@ const darkTheme: monaco.editor.IStandaloneThemeData = {
     { token: "string.value.json", foreground: "fdba74" },
 
     { token: "attribute.name", foreground: "FF0000" },
-    { token: "attribute.value", foreground: "0451A5" },
+    { token: "attribute.value", foreground: "34d399" },
     { token: "attribute.value.number", foreground: "fdba74" },
     { token: "attribute.value.unit", foreground: "fdba74" },
     { token: "attribute.value.html", foreground: "facc15" },
@@ -55,10 +55,10 @@ const darkTheme: monaco.editor.IStandaloneThemeData = {
     { token: "string", foreground: "2dd4bf" },
     { token: "string.html", foreground: "facc15" },
     { token: "string.sql", foreground: "FF0000" },
-    { token: "string.yaml", foreground: "0451A5" },
+    { token: "string.yaml", foreground: "34d399" },
 
     { token: "keyword", foreground: "60a5fa" },
-    { token: "keyword.json", foreground: "0451A5" },
+    { token: "keyword.json", foreground: "34d399" },
     { token: "keyword.flow", foreground: "AF00DB" },
     { token: "keyword.flow.scss", foreground: "facc15" },
 

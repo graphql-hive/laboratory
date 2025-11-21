@@ -1,12 +1,10 @@
-import { Builder } from "@/components/labaratory/builder";
 import { Collections } from "@/components/labaratory/collections";
 import { Command } from "@/components/labaratory/command";
 import {
   LabaratoryProvider,
   useLabaratory,
-  type LabaratoryContextProps,
+  type LabaratoryApi,
 } from "@/components/labaratory/context";
-// import { History } from "@/components/labaratory/history";
 import { Operation } from "@/components/labaratory/operation";
 import { Tabs } from "@/components/labaratory/tabs";
 import { Button } from "@/components/ui/button";
@@ -47,6 +45,7 @@ import { cn } from "@/lib/utils";
 import {
   ArrowRightIcon,
   FileIcon,
+  FlaskConicalIcon,
   FoldersIcon,
   HistoryIcon,
   SettingsIcon,
@@ -71,6 +70,17 @@ import { usePreflight } from "@/lib/preflight";
 import { useEnv } from "@/lib/env";
 import { Env } from "@/components/labaratory/env";
 import { History } from "@/components/labaratory/history";
+import { HistoryItem } from "@/components/labaratory/history-item";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { useSettings } from "@/lib/settings";
+import { Settings } from "@/components/labaratory/settings";
+import { useTests } from "@/lib/tests";
+import { Tests } from "@/components/labaratory/tests";
+import { Test } from "@/components/labaratory/test";
 
 const addCollectionFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -79,6 +89,101 @@ const addCollectionFormSchema = z.object({
 const updateEndpointFormSchema = z.object({
   endpoint: z.string().min(1, "Endpoint is required"),
 });
+
+const addTestFormSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+});
+
+const PreflightPromptModal = (props: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  placeholder: string;
+  defaultValue?: string;
+  onSubmit?: (value: string | null) => void;
+}) => {
+  const form = useForm({
+    defaultValues: {
+      value: props.defaultValue || null,
+    },
+    validators: {
+      onSubmit: z.object({
+        value: z.string().min(1, "Value is required").nullable(),
+      }),
+    },
+    onSubmit: ({ value }) => {
+      props.onSubmit?.(value.value || null);
+      props.onOpenChange(false);
+      form.reset();
+    },
+  });
+
+  return (
+    <Dialog
+      open={props.open}
+      onOpenChange={(open) => {
+        if (!form.state.isSubmitted) {
+          form.handleSubmit();
+        }
+
+        props.onOpenChange(open);
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Preflight prompt</DialogTitle>
+        </DialogHeader>
+        <DialogDescription>
+          Enter values for the preflight script.
+        </DialogDescription>
+        <form
+          id="preflight-prompt-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            form.handleSubmit();
+          }}
+        >
+          <FieldGroup>
+            <form.Field
+              name="value"
+              children={(field) => {
+                const isInvalid =
+                  field.state.meta.isTouched && !field.state.meta.isValid;
+                return (
+                  <Field data-invalid={isInvalid}>
+                    <Input
+                      id={field.name}
+                      name={field.name}
+                      value={field.state.value || ""}
+                      onBlur={field.handleBlur}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      aria-invalid={isInvalid}
+                      placeholder={props.placeholder}
+                      autoComplete="off"
+                    />
+                    {isInvalid && (
+                      <FieldError errors={field.state.meta.errors} />
+                    )}
+                  </Field>
+                );
+              }}
+            />
+          </FieldGroup>
+        </form>
+        <DialogFooter>
+          <Button
+            type="submit"
+            form="preflight-prompt-form"
+            onClick={() => {
+              form.handleSubmit();
+            }}
+          >
+            Submit
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 const LabaratoryContent = () => {
   const {
@@ -92,7 +197,7 @@ const LabaratoryContent = () => {
     env,
   } = useLabaratory();
   const [activePanel, setActivePanel] = useState<
-    "collections" | "history" | "settings" | null
+    "collections" | "history" | "tests" | "settings" | null
   >(collections.length > 0 ? "collections" : null);
   const [commandOpen, setCommandOpen] = useState(false);
 
@@ -104,6 +209,12 @@ const LabaratoryContent = () => {
         return <Preflight />;
       case "env":
         return <Env />;
+      case "history":
+        return <HistoryItem />;
+      case "settings":
+        return <Settings />;
+      case "test":
+        return <Test />;
       default:
         return (
           <Empty className="w-full px-0!">
@@ -149,60 +260,44 @@ const LabaratoryContent = () => {
     <div className="w-full h-full flex">
       <Command open={commandOpen} onOpenChange={setCommandOpen} />
       <div className="h-full w-12.25 flex flex-col">
-        <div
-          className={cn(
-            "w-full relative z-10 h-12.25 aspect-square flex items-center justify-center border-l-2 border-transparent",
-            {
-              "border-primary": activePanel === "collections",
-            }
-          )}
-        >
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() =>
-              setActivePanel(
-                activePanel === "collections" ? null : "collections"
-              )
-            }
-            className={cn("text-muted-foreground hover:text-foreground", {
-              "text-foreground": activePanel === "collections",
-            })}
-          >
-            <FoldersIcon className="size-5" />
-          </Button>
-        </div>
-        <div
-          className={cn(
-            "w-full relative z-10 h-12.25 aspect-square flex items-center justify-center border-l-2 border-transparent",
-            {
-              "border-primary": activePanel === "history",
-            }
-          )}
-        >
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() =>
-              setActivePanel(activePanel === "history" ? null : "history")
-            }
-            className={cn("text-muted-foreground hover:text-foreground", {
-              "text-foreground": activePanel === "history",
-            })}
-          >
-            <HistoryIcon className="size-5" />
-          </Button>
-        </div>
-        <div
-          className={cn(
-            "mt-auto w-full relative z-10 h-12.25 aspect-square flex items-center justify-center border-l-2 border-transparent",
-            {
-              "border-primary": activePanel === "settings",
-            }
-          )}
-        >
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div
+              className={cn(
+                "w-full relative z-10 h-12.25 aspect-square flex items-center justify-center border-l-2 border-transparent",
+                {
+                  "border-primary": activePanel === "collections",
+                }
+              )}
+            >
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() =>
+                  setActivePanel(
+                    activePanel === "collections" ? null : "collections"
+                  )
+                }
+                className={cn("text-muted-foreground hover:text-foreground", {
+                  "text-foreground": activePanel === "collections",
+                })}
+              >
+                <FoldersIcon className="size-5" />
+              </Button>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="right">Collections</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div
+              className={cn(
+                "w-full relative z-10 h-12.25 aspect-square flex items-center justify-center border-l-2 border-transparent",
+                {
+                  "border-primary": activePanel === "history",
+                }
+              )}
+            >
               <Button
                 variant="ghost"
                 size="icon"
@@ -213,80 +308,154 @@ const LabaratoryContent = () => {
                   "text-foreground": activePanel === "history",
                 })}
               >
-                <SettingsIcon className="size-5" />
+                <HistoryIcon className="size-5" />
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              className="w-56 mb-2"
-              align="start"
-              side="right"
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="right">History</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div
+              className={cn(
+                "w-full relative z-10 h-12.25 aspect-square flex items-center justify-center border-l-2 border-transparent",
+                {
+                  "border-primary": activePanel === "tests",
+                }
+              )}
             >
-              <DropdownMenuGroup>
-                <DropdownMenuItem onSelect={() => setCommandOpen(true)}>
-                  Command Palette...
-                  <DropdownMenuShortcut>⌘J</DropdownMenuShortcut>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() =>
+                  setActivePanel(activePanel === "tests" ? null : "tests")
+                }
+                className={cn("text-muted-foreground hover:text-foreground", {
+                  "text-foreground": activePanel === "tests",
+                })}
+              >
+                <FlaskConicalIcon className="size-5" />
+              </Button>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="right">Tests</TooltipContent>
+        </Tooltip>
+        <div
+          className={cn(
+            "mt-auto w-full relative z-10 h-12.25 aspect-square flex items-center justify-center border-l-2 border-transparent",
+            {
+              "border-primary": activePanel === "settings",
+            }
+          )}
+        >
+          <Tooltip>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() =>
+                      setActivePanel(
+                        activePanel === "history" ? null : "history"
+                      )
+                    }
+                    className={cn(
+                      "text-muted-foreground hover:text-foreground",
+                      {
+                        "text-foreground": activePanel === "history",
+                      }
+                    )}
+                  >
+                    <SettingsIcon className="size-5" />
+                  </Button>
+                </TooltipTrigger>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                className="w-56 mb-2"
+                align="start"
+                side="right"
+              >
+                <DropdownMenuGroup>
+                  <DropdownMenuItem onSelect={() => setCommandOpen(true)}>
+                    Command Palette...
+                    <DropdownMenuShortcut>⌘J</DropdownMenuShortcut>
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={() => {
+                    const tab =
+                      tabs.find((t) => t.type === "env") ??
+                      addTab({
+                        type: "env",
+                        data: env ?? { variables: {} },
+                      });
+
+                    setActiveTab(tab);
+                  }}
+                >
+                  Environment Variables
                 </DropdownMenuItem>
-              </DropdownMenuGroup>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onSelect={() => {
-                  const tab =
-                    tabs.find((t) => t.type === "env") ??
-                    addTab({
-                      type: "env",
-                      data: env ?? { variables: {} },
-                    });
+                <DropdownMenuItem
+                  onSelect={() => {
+                    const tab =
+                      tabs.find((t) => t.type === "preflight") ??
+                      addTab({
+                        type: "preflight",
+                        data: preflight ?? { script: "" },
+                      });
 
-                  setActiveTab(tab);
-                }}
-              >
-                Environment Variables
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() => {
-                  const tab =
-                    tabs.find((t) => t.type === "preflight") ??
-                    addTab({
-                      type: "preflight",
-                      data: preflight ?? { script: "" },
-                    });
+                    setActiveTab(tab);
+                  }}
+                >
+                  Preflight Script
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={() => {
+                    const tab =
+                      tabs.find((t) => t.type === "settings") ??
+                      addTab({
+                        type: "settings",
+                        data: {},
+                      });
 
-                  setActiveTab(tab);
-                }}
-              >
-                Preflight Script
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                    setActiveTab(tab);
+                  }}
+                >
+                  Settings
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <TooltipContent side="right">Settings</TooltipContent>
+          </Tooltip>
         </div>
       </div>
       <ResizablePanelGroup direction="horizontal" className="flex-1 h-full">
         <ResizablePanel
           minSize={10}
-          defaultSize={20}
+          defaultSize={17}
           hidden={!activePanel}
           className="border-l"
         >
           {activePanel === "collections" && <Collections />}
           {activePanel === "history" && <History />}
+          {activePanel === "tests" && <Tests />}
         </ResizablePanel>
         <ResizableHandle />
-        <ResizablePanel minSize={10} defaultSize={20} className="bg-card">
-          <Builder />
-        </ResizablePanel>
-        <ResizableHandle />
-        <ResizablePanel minSize={10} defaultSize={60} className="flex flex-col">
+        <ResizablePanel minSize={10} defaultSize={83} className="flex flex-col">
           <div className="w-full">
             <Tabs />
           </div>
-          {contentNode}
+          <div className="flex-1 overflow-hidden">{contentNode}</div>
         </ResizablePanel>
       </ResizablePanelGroup>
     </div>
   );
 };
 
-export type LabaratoryProps = LabaratoryContextProps;
+export type LabaratoryProps = LabaratoryApi;
 
 export const Labaratory = (
   props: Pick<
@@ -295,12 +464,24 @@ export const Labaratory = (
     | "onEndpointChange"
     | "defaultCollections"
     | "onCollectionsChange"
+    | "onCollectionCreate"
+    | "onCollectionUpdate"
+    | "onCollectionDelete"
+    | "onCollectionOperationCreate"
+    | "onCollectionOperationUpdate"
+    | "onCollectionOperationDelete"
     | "defaultOperations"
     | "onOperationsChange"
     | "defaultActiveOperationId"
     | "onActiveOperationIdChange"
+    | "onOperationCreate"
+    | "onOperationUpdate"
+    | "onOperationDelete"
     | "defaultHistory"
     | "onHistoryChange"
+    | "onHistoryCreate"
+    | "onHistoryUpdate"
+    | "onHistoryDelete"
     | "defaultTabs"
     | "onTabsChange"
     | "defaultPreflight"
@@ -309,13 +490,19 @@ export const Labaratory = (
     | "onEnvChange"
     | "defaultActiveTabId"
     | "onActiveTabIdChange"
+    | "defaultSettings"
+    | "onSettingsChange"
+    | "defaultTests"
+    | "onTestsChange"
   >
 ) => {
+  const settingsApi = useSettings(props);
   const envApi = useEnv(props);
   const preflightApi = usePreflight({
     ...props,
     envApi,
   });
+  const testsApi = useTests(props);
   const tabsApi = useTabs(props);
   const endpointApi = useEndpoint(props);
   const collectionsApi = useCollections({
@@ -337,12 +524,18 @@ export const Labaratory = (
   const [isUpdateEndpointDialogOpen, setIsUpdateEndpointDialogOpen] =
     useState(false);
 
+  const [isAddTestDialogOpen, setIsAddTestDialogOpen] = useState(false);
+
   const openAddCollectionDialog = useCallback(() => {
     setIsCollectionDialogOpen(true);
   }, []);
 
   const openUpdateEndpointDialog = useCallback(() => {
     setIsUpdateEndpointDialogOpen(true);
+  }, []);
+
+  const openAddTestDialog = useCallback(() => {
+    setIsAddTestDialogOpen(true);
   }, []);
 
   const addCollectionForm = useForm({
@@ -372,6 +565,51 @@ export const Labaratory = (
       setIsUpdateEndpointDialogOpen(false);
     },
   });
+
+  const addTestForm = useForm({
+    defaultValues: {
+      name: "",
+    },
+    validators: {
+      onSubmit: addTestFormSchema,
+    },
+    onSubmit: ({ value }) => {
+      testsApi.addTest({ name: value.name });
+      setIsAddTestDialogOpen(false);
+    },
+  });
+
+  const [isPreflightPromptModalOpen, setIsPreflightPromptModalOpen] =
+    useState(false);
+
+  const [preflightPromptModalProps, setPreflightPromptModalProps] = useState<{
+    placeholder: string;
+    defaultValue?: string;
+    onSubmit?: (value: string | null) => void;
+  }>({
+    placeholder: "",
+    defaultValue: undefined,
+    onSubmit: undefined,
+  });
+
+  const openPreflightPromptModal = useCallback(
+    (props: {
+      placeholder: string;
+      defaultValue?: string;
+      onSubmit?: (value: string | null) => void;
+    }) => {
+      setIsPreflightPromptModalOpen(true);
+
+      setPreflightPromptModalProps({
+        placeholder: props.placeholder,
+        defaultValue: props.defaultValue,
+        onSubmit: props.onSubmit,
+      });
+
+      setIsPreflightPromptModalOpen(true);
+    },
+    []
+  );
 
   let result: React.ReactNode = null;
 
@@ -598,6 +836,11 @@ export const Labaratory = (
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        <PreflightPromptModal
+          open={isPreflightPromptModalOpen}
+          onOpenChange={setIsPreflightPromptModalOpen}
+          {...preflightPromptModalProps}
+        />
         <Dialog
           open={isAddCollectionDialogOpen}
           onOpenChange={setIsCollectionDialogOpen}
@@ -656,9 +899,69 @@ export const Labaratory = (
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        <Dialog
+          open={isAddTestDialogOpen}
+          onOpenChange={setIsAddTestDialogOpen}
+        >
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Add test</DialogTitle>
+              <DialogDescription>
+                Add a new test to your labaratory.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4">
+              <form
+                id="add-test-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  addTestForm.handleSubmit();
+                }}
+              >
+                <FieldGroup>
+                  <addTestForm.Field
+                    name="name"
+                    children={(field) => {
+                      const isInvalid =
+                        field.state.meta.isTouched && !field.state.meta.isValid;
+                      return (
+                        <Field data-invalid={isInvalid}>
+                          <FieldLabel htmlFor={field.name}>Name</FieldLabel>
+                          <Input
+                            id={field.name}
+                            name={field.name}
+                            value={field.state.value}
+                            onBlur={field.handleBlur}
+                            onChange={(e) => field.handleChange(e.target.value)}
+                            aria-invalid={isInvalid}
+                            placeholder="Enter name of the test"
+                            autoComplete="off"
+                          />
+                          {isInvalid && (
+                            <FieldError errors={field.state.meta.errors} />
+                          )}
+                        </Field>
+                      );
+                    }}
+                  />
+                </FieldGroup>
+              </form>
+            </div>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button variant="outline">Cancel</Button>
+              </DialogClose>
+              <Button type="submit" form="add-test-form">
+                Add test
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <LabaratoryProvider
           {...props}
+          {...testsApi}
+          {...settingsApi}
           {...envApi}
           {...preflightApi}
           {...tabsApi}
@@ -668,6 +971,8 @@ export const Labaratory = (
           {...historyApi}
           openAddCollectionDialog={openAddCollectionDialog}
           openUpdateEndpointDialog={openUpdateEndpointDialog}
+          openAddTestDialog={openAddTestDialog}
+          openPreflightPromptModal={openPreflightPromptModal}
         >
           <LabaratoryContent />
         </LabaratoryProvider>

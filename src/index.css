@@ -119,8 +119,18 @@
 
     app-region: drag;
   }
+
   .monaco-editor {
     position: absolute !important;
+  }
+
+  .bg-dots {
+    background-image: radial-gradient(circle, var(--border) 1px, #0000 0);
+    background-size: 24px 24px;
+  }
+
+  .react-flow__panel {
+    display: none;
   }
 }
 
