@@ -1,4 +1,8 @@
 {
   "extends": "./tsconfig.json",
+<<<<<<< HEAD
   "include": ["src"]
+=======
+  "include": ["lib"]
+>>>>>>> 5a9eb390a6573e66ff492cfc42c186c28641e14d
 }

@@ -31,7 +31,7 @@ export default defineConfig(({ command }) => {
         insertTypesEntry: true,
         staticImport: true,
         include: ["src/**/*.ts", "src/**/*.tsx"],
-      })
+      }),
     ],
     resolve: {
       alias: {
