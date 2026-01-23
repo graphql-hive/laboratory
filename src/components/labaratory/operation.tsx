@@ -612,7 +612,7 @@ export const Query = (props: {
           className="h-6 data-[state=on]:bg-transparent data-[state=on]:*:[svg]:fill-yellow-500 data-[state=on]:*:[svg]:stroke-yellow-500"
           onClick={openSaveToCollectionDialog}
         >
-          <BookmarkIcon />
+          <BookmarkIcon className="size-4" />
           {isActiveOperationSavedToCollection ? "Saved" : "Save"}
         </Toggle>
         <div className="ml-auto flex items-center gap-2">
