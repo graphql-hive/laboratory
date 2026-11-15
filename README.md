@@ -1,3 +1,10 @@
+> [!WARNING]
+> **This repository is deprecated and archived.**
+>
+> Laboratory now lives in the Hive Console monorepo at
+> [`graphql-hive/console/packages/libraries/laboratory`](https://github.com/graphql-hive/console/tree/main/packages/libraries/laboratory).
+> Please open issues and pull requests there. This repository is no longer maintained.
+
 # Hive Labaratory Component Documentation
 
 `Labaratory` is a fully featured React component that provides a modern GraphQL playground experience (collections, tabs, history, preflight scripts, environment variables, tests, etc.). It ships with an opinionated UI and a context provider that exposes granular hooks for integrating with your own storage or analytics layers.
